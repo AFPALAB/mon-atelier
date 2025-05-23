@@ -10,6 +10,128 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans">
-  ...
+  <div class="max-w-6xl mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-4">Réservation Atelier</h1>
+
+    <div class="mb-4">
+      <label for="role" class="block text-sm font-medium">Je suis :</label>
+      <select id="role" class="mt-1 block w-full border border-gray-300 rounded p-2">
+        <option value="candidat">Candidat</option>
+        <option value="prescripteur">Prescripteur</option>
+        <option value="organisateur">Organisateur</option>
+      </select>
+    </div>
+
+    <!-- Formulaire d'inscription -->
+    <form id="reservationForm" class="mb-6 bg-white p-4 rounded shadow">
+      <div class="mb-4">
+        <label for="nom" class="block text-sm font-medium">Nom :</label>
+        <input type="text" id="nom" name="nom" required class="mt-1 block w-full border border-gray-300 rounded p-2">
+      </div>
+      <div class="mb-4">
+        <label for="email" class="block text-sm font-medium">Email :</label>
+        <input type="email" id="email" name="email" required class="mt-1 block w-full border border-gray-300 rounded p-2">
+      </div>
+      <div class="mb-4">
+        <label for="atelier" class="block text-sm font-medium">Atelier :</label>
+        <select id="atelier" name="atelier" class="mt-1 block w-full border border-gray-300 rounded p-2">
+          <option value="">Chargement des ateliers...</option>
+        </select>
+      </div>
+      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">S'inscrire</button>
+    </form>
+
+    <!-- Calendrier des ateliers -->
+    <div id="calendar" class="hidden bg-white p-4 rounded shadow mb-6"></div>
+
+    <!-- Tableau des participants -->
+    <div id="participantsTable" class="hidden bg-white p-4 rounded shadow mb-6">
+      <h2 class="text-xl font-bold mb-2">Suivi des participants</h2>
+      <table class="min-w-full table-auto border">
+        <thead class="bg-gray-200">
+          <tr>
+            <th class="px-4 py-2">Nom</th>
+            <th class="px-4 py-2">Email</th>
+            <th class="px-4 py-2">Atelier</th>
+          </tr>
+        </thead>
+        <tbody id="participantsBody"></tbody>
+      </table>
+      <button onclick="exportPDF()" class="mt-4 bg-green-600 text-white px-4 py-2 rounded">Exporter en PDF</button>
+    </div>
+
+    <div id="confirmation" class="hidden text-green-600 font-bold"></div>
+  </div>
+
+  <script>
+    const BACKEND_URL = "https://reservation-backend-h0dt.onrender.com";
+
+    async function fetchAteliers() {
+      const response = await fetch(`${BACKEND_URL}/ateliers`);
+      const data = await response.json();
+      const select = document.getElementById("atelier");
+      select.innerHTML = data.map(a => `<option value="${a._id}">${a.nom} - ${a.date}</option>`).join("");
+
+      const calendarEl = document.getElementById("calendar");
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        events: data.map(a => ({ title: a.nom, start: a.date, end: a.date_fin }))
+      });
+      calendar.render();
+    }
+
+    async function postReservation(nom, email, atelierId) {
+      const response = await fetch(`${BACKEND_URL}/inscription`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nom, email, atelierId })
+      });
+      return await response.json();
+    }
+
+    async function fetchParticipants() {
+      const response = await fetch(`${BACKEND_URL}/participants`);
+      const data = await response.json();
+      const body = document.getElementById("participantsBody");
+      body.innerHTML = data.map(p => `<tr><td class="border px-4 py-2">${p.nom}</td><td class="border px-4 py-2">${p.email}</td><td class="border px-4 py-2">${p.atelier}</td></tr>`).join("");
+    }
+
+    function exportPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.text("Liste des Participants", 10, 10);
+      const rows = Array.from(document.querySelectorAll("#participantsBody tr")).map(tr => {
+        return Array.from(tr.children).map(td => td.textContent);
+      });
+      let y = 20;
+      rows.forEach(row => {
+        doc.text(row.join(" | "), 10, y);
+        y += 10;
+      });
+      doc.save("participants.pdf");
+    }
+
+    document.getElementById("reservationForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const nom = document.getElementById("nom").value;
+      const email = document.getElementById("email").value;
+      const atelierId = document.getElementById("atelier").value;
+
+      const result = await postReservation(nom, email, atelierId);
+      const confirmation = document.getElementById("confirmation");
+      confirmation.textContent = result.message || "Inscription réussie !";
+      confirmation.classList.remove("hidden");
+    });
+
+    document.getElementById("role").addEventListener("change", function () {
+      const role = this.value;
+      document.getElementById("reservationForm").classList.toggle("hidden", role === "organisateur");
+      document.getElementById("calendar").classList.toggle("hidden", role !== "organisateur");
+      document.getElementById("participantsTable").classList.toggle("hidden", role !== "organisateur");
+      if (role === "organisateur") fetchParticipants();
+    });
+
+    document.addEventListener("DOMContentLoaded", fetchAteliers);
+  </script>
 </body>
 </html>
