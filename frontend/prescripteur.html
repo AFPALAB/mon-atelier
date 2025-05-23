@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Prescripteur</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-6">
+  <div class="max-w-3xl mx-auto bg-white p-6 rounded shadow">
+    <h2 class="text-xl font-bold mb-4">Inscription par un Prescripteur</h2>
+    <form id="prescripteurForm" class="space-y-4">
+      <input type="text" id="entreprise" class="w-full border p-2 rounded" placeholder="Entreprise" required>
+      <input type="text" id="ville" class="w-full border p-2 rounded" placeholder="Ville" required>
+      <input type="tel" id="telephone" class="w-full border p-2 rounded" placeholder="Téléphone" required>
+      <input type="text" id="nomCandidat" class="w-full border p-2 rounded" placeholder="Nom du candidat" required>
+      <input type="email" id="emailCandidat" class="w-full border p-2 rounded" placeholder="Email du candidat" required>
+      <input type="text" id="atelier" class="w-full border p-2 rounded" placeholder="Atelier" required>
+      <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded">Inscrire</button>
+    </form>
+    <div class="mt-6">
+      <h3 class="font-semibold text-lg">Inscriptions en mémoire :</h3>
+      <ul id="listePrescripteurs" class="mt-2 list-disc pl-5 text-sm text-gray-700"></ul>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

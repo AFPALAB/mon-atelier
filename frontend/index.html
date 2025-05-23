@@ -1,38 +1,14 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Inscription Prescripteur</title>
+  <meta charset="UTF-8">
+  <title>Accueil</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 p-6">
-  <div class="max-w-3xl mx-auto bg-white p-6 rounded shadow">
-    <h1 class="text-2xl font-bold mb-4 text-center">Inscription par un Prescripteur</h1>
-    <form id="prescripteurForm" class="space-y-4">
-      <div>
-        <label class="block text-sm font-medium">Entreprise</label>
-        <input type="text" id="entreprise" class="w-full border p-2 rounded" placeholder="Nom de l'entreprise" required>
-      </div>
-      <div>
-        <label class="block text-sm font-medium">Ville</label>
-        <input type="text" id="ville" class="w-full border p-2 rounded" placeholder="Ville" required>
-      </div>
-      <div>
-        <label class="block text-sm font-medium">Numéro de téléphone</label>
-        <input type="tel" id="telephone" class="w-full border p-2 rounded" placeholder="Téléphone" required>
-      </div>
-      <div>
-        <label class="block text-sm font-medium">Nom du candidat</label>
-        <input type="text" id="nomCandidat" class="w-full border p-2 rounded" placeholder="Nom du candidat" required>
-      </div>
-      <div>
-        <label class="block text-sm font-medium">Email du candidat</label>
-        <input type="email" id="emailCandidat" class="w-full border p-2 rounded" placeholder="Email" required>
-      </div>
-      <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Inscrire</button>
-    </form>
-  </div>
-  <script src="script.js"></script>
+<body class="bg-gray-100 h-screen flex flex-col justify-center items-center space-y-4">
+  <h1 class="text-2xl font-bold">Bienvenue sur le portail</h1>
+  <a href="candidat.html" class="bg-blue-500 text-white px-6 py-2 rounded">Je suis un candidat</a>
+  <a href="prescripteur.html" class="bg-green-500 text-white px-6 py-2 rounded">Je suis un prescripteur</a>
+  <a href="organisateur.html" class="bg-yellow-500 text-white px-6 py-2 rounded">Je suis un organisateur</a>
 </body>
 </html>
