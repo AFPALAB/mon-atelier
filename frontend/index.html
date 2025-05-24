@@ -9,6 +9,14 @@
 <style>
   .hidden { display: none; }
 </style>
+
+<script type="text/javascript" src="https://cdn.emailjs.com/dist/email.min.js"></script>
+<script>
+  (function(){
+    emailjs.init("GvqsBDTA611pD8wap");
+  })();
+</script>
+
 </head>
 <body class="bg-gray-50 p-4 font-sans">
 
@@ -45,6 +53,11 @@
     <input type="email" id="prescripteurEmail" placeholder="Votre email" class="w-full border px-3 py-2 rounded" required />
     <input type="text" id="prescripteurCandidatNom" placeholder="Nom du candidat" class="w-full border px-3 py-2 rounded" required />
     <input type="email" id="prescripteurCandidatEmail" placeholder="Email du candidat" class="w-full border px-3 py-2 rounded" required />
+
+<input type="text" id="prescripteurEntreprise" placeholder="Entreprise" class="w-full border px-3 py-2 rounded" required />
+<input type="text" id="prescripteurVille" placeholder="Ville" class="w-full border px-3 py-2 rounded" required />
+<input type="tel" id="prescripteurTel" placeholder="Téléphone" class="w-full border px-3 py-2 rounded" required />
+
     <select id="prescripteurAtelier" class="w-full border px-3 py-2 rounded" required>
       <option value="">Choisir un atelier</option>
     </select>
@@ -264,6 +277,11 @@ document.getElementById("candidatForm").addEventListener("submit", e => {
   const msgEl = document.getElementById("candidatMessage");
   if (res.success) {
     msgEl.textContent = "Inscription réussie !";
+emailjs.send("service_78mdt6g", "template_4xgt48q", {
+  nom: nom,
+  email: email,
+  atelier: ateliers[atelierIndex].nom
+});
     e.target.reset();
   } else {
     msgEl.textContent = res.message;
@@ -285,6 +303,14 @@ document.getElementById("prescripteurForm").addEventListener("submit", e => {
   const msgEl = document.getElementById("prescripteurMessage");
   if (res.success) {
     msgEl.textContent = "Candidat inscrit avec succès !";
+emailjs.send("service_78mdt6g", "template_4xgt48q", {
+  nom: nomCandidat,
+  email: emailCandidat,
+  atelier: ateliers[atelierIndex].nom,
+  entreprise: document.getElementById("prescripteurEntreprise").value,
+  ville: document.getElementById("prescripteurVille").value,
+  tel: document.getElementById("prescripteurTel").value
+});
     e.target.reset();
   } else {
     msgEl.textContent = res.message;
