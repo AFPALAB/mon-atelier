@@ -10,11 +10,10 @@
   .hidden { display: none; }
 </style>
 
-<script type="text/javascript" src="https://cdn.emailjs.com/dist/email.min.js"></script>
-<script>
-  (function(){
-    emailjs.init("GvqsBDTA611pD8wap");
-  })();
+<script type="module">
+  import emailjs from 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
+  emailjs.init('GvqsBDTA611pD8wap');
+  window.emailjs = emailjs;
 </script>
 
 </head>
