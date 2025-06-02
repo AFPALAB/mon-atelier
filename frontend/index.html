@@ -2,622 +2,333 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gestion Ateliers</title>
+  <title>Plateforme Réservation d'Ateliers</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <script>
-    emailjs.init("GvqsBDTA611pD8wap"); // ✅ clé publique EmailJS
+    emailjs.init("GvqsBDTA611pD8wap");
   </script>
   <style>
+    body { font-family: sans-serif; }
     .hidden { display: none; }
   </style>
 </head>
-<body class="bg-gray-50 p-4 font-sans">
+<body class="bg-gray-100 p-6">
+  <h1 class="text-3xl font-bold text-center mb-6">Réservation d'Ateliers</h1>
+  <div class="text-center space-x-2 mb-6">
+    <button onclick="selectRole('candidat')" class="bg-blue-600 text-white px-4 py-2 rounded">Candidat</button>
+    <button onclick="selectRole('prescripteur')" class="bg-green-600 text-white px-4 py-2 rounded">Prescripteur</button>
+    <button onclick="selectRole('organisateur')" class="bg-gray-800 text-white px-4 py-2 rounded">Organisateur</button>
+  </div>
+  <div id="app" class="max-w-6xl mx-auto"></div>
+<script>
+  let ateliers = JSON.parse(localStorage.getItem("ateliers") || "[]");
+  const mdp = "atelier2024";
 
-<h1 class="text-3xl font-bold mb-6 text-center">Gestion des Ateliers</h1>
+  function sauvegarder() {
+    localStorage.setItem("ateliers", JSON.stringify(ateliers));
+  }
 
-<!-- Sélection rôle -->
-<div id="roleSelection" class="mb-6 text-center">
-  <p class="mb-3">Choisissez votre rôle :</p>
-  <button onclick="selectRole('candidat')" class="bg-blue-600 text-white px-4 py-2 rounded mr-2">Candidat</button>
-  <button onclick="selectRole('prescripteur')" class="bg-green-600 text-white px-4 py-2 rounded mr-2">Prescripteur</button>
-  <button onclick="selectRole('organisateur')" class="bg-gray-800 text-white px-4 py-2 rounded">Organisateur</button>
+  function selectRole(role) {
+    if (role === "organisateur") {
+      const pass = prompt("Mot de passe :");
+      if (pass !== mdp) return alert("Mot de passe incorrect");
+      renderOrganisateur();
+    } else {
+      renderInscription(role);
+      chargerCalendrier();
+    }
+  }
+
+  function renderInscription(role) {
+    const isPrescripteur = role === "prescripteur";
+    const titre = isPrescripteur ? "Inscription via Prescripteur" : "Inscription Candidat";
+    const prescripteurFields = isPrescripteur ? `
+      <input type="text" id="entreprise" placeholder="Entreprise" class="w-full border p-2 rounded" required>
+      <input type="text" id="ville" placeholder="Ville" class="w-full border p-2 rounded" required>
+      <input type="tel" id="tel" placeholder="Téléphone" class="w-full border p-2 rounded" required>
+    ` : "";
+    document.getElementById("app").innerHTML = `
+      <div class="bg-white p-6 rounded shadow max-w-xl mx-auto">
+        <h2 class="text-xl font-bold mb-4">${titre}</h2>
+        <form id="formInscription" class="space-y-3">
+          <input type="text" id="nom" placeholder="Nom" class="w-full border p-2 rounded" required>
+          <input type="email" id="email" placeholder="Email" class="w-full border p-2 rounded" required>
+          ${prescripteurFields}
+          <select id="atelier" class="w-full border p-2 rounded" required></select>
+          <p id="descAtelier" class="text-sm text-gray-700 italic mt-1"></p>
+          <p id="placesRestantes" class="text-sm font-semibold text-red-600 mt-1"></p>
+          <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded">S'inscrire</button>
+        </form>
+        <p id="msg" class="text-green-600 mt-3 font-semibold text-center"></p>
+        <div id="calendar" class="mt-6 bg-gray-100 p-4 rounded shadow"></div>
+      </div>`;
+    
+    const sel = document.getElementById("atelier");
+    sel.innerHTML = '<option value="">Choisir un atelier</option>';
+    ateliers.forEach((a, i) => {
+      const opt = document.createElement("option");
+      opt.value = i;
+      opt.textContent = `${a.nom} (${a.dateDebut})`;
+      sel.appendChild(opt);
+    });
+    sel.onchange = () => {
+  const i = sel.value;
+  if (i === "") {
+    document.getElementById("descAtelier").textContent = "";
+    document.getElementById("placesRestantes").textContent = "";
+    return;
+  }
+
+  const a = ateliers[i];
+  const total = a.places;
+  const inscrits = JSON.parse(localStorage.getItem("inscriptions") || "[]")
+    .filter(insc => insc.atelierIndex == i).length;
+
+  const dispo = total - inscrits;
+  document.getElementById("descAtelier").textContent = a.description;
+  document.getElementById("placesRestantes").textContent = dispo > 0
+    ? `${dispo} place(s) restante(s)`
+    : "Complet – inscription en liste d’attente possible";
+};
+    
+    document.getElementById("formInscription").onsubmit = e => {
+      e.preventDefault();
+      const i = document.getElementById("atelier").value;
+      const atelier = ateliers[i];
+      const data = {
+        nom: document.getElementById("nom").value,
+        email: document.getElementById("email").value,
+        atelier: atelier.nom,
+        entreprise: isPrescripteur ? document.getElementById("entreprise").value : "",
+        ville: isPrescripteur ? document.getElementById("ville").value : "",
+        tel: isPrescripteur ? document.getElementById("tel").value : ""
+      };
+      // Ajout aux inscriptions ou à la liste d'attente
+let inscriptions = JSON.parse(localStorage.getItem("inscriptions") || "[]");
+const nbInscrits = inscriptions.filter(insc => insc.atelierIndex == i).length;
+
+if (nbInscrits < atelier.places) {
+  inscriptions.push({
+    nom: data.nom,
+    email: data.email,
+    atelierIndex: i,
+    role,
+    entreprise: data.entreprise || "",
+    ville: data.ville || "",
+    tel: data.tel || ""
+  });
+  localStorage.setItem("inscriptions", JSON.stringify(inscriptions));
+} else {
+  let listeAttente = JSON.parse(localStorage.getItem("listeAttente") || "[]");
+  listeAttente.push({ ...data, atelierIndex: i, role });
+  localStorage.setItem("listeAttente", JSON.stringify(listeAttente));
+}
+
+      emailjs.send("service_78mdt6g", "template_4xgt48q", data);
+      emailjs.send("service_78mdt6g", "template_4xgt48q", { ...data, email: "organisateur@atelier.com" });
+      document.getElementById("msg").textContent = "Inscription envoyée avec succès.";
+      e.target.reset();
+    };
+  }
+</script>
+<script>
+function renderOrganisateur() {
+    document.getElementById("app").innerHTML = `
+      <div class="bg-white p-6 rounded shadow">
+        <h2 class="text-xl font-bold mb-4">Administration des Ateliers</h2>
+        <form id="formAtelier" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          <input type="text" id="aNom" placeholder="Nom" class="border p-2 rounded" required>
+          <input type="date" id="aDebut" class="border p-2 rounded" required>
+          <input type="date" id="aFin" class="border p-2 rounded" required>
+          <input type="time" id="aHdeb" class="border p-2 rounded" required>
+          <input type="time" id="aHfin" class="border p-2 rounded" required>
+          <input type="number" id="aPlaces" placeholder="Places" class="border p-2 rounded" required>
+          <textarea id="aDesc" placeholder="Description de l'atelier" class="border p-2 rounded col-span-full"></textarea>
+          <button type="submit" class="col-span-full bg-blue-600 text-white py-2 rounded">Ajouter</button>
+        </form>
+        <ul id="listeAteliers" class="space-y-3 mb-6"></ul>
+        <h3 class="text-lg font-semibold mt-8 mb-2">Inscriptions confirmées</h3>
+<table class="w-full table-auto border bg-white rounded shadow mb-6">
+  <thead class="bg-gray-200">
+    <tr>
+      <th class="border px-2 py-1">Nom</th>
+      <th class="border px-2 py-1">Email</th>
+      <th class="border px-2 py-1">Atelier</th>
+      <th class="border px-2 py-1">Via</th>
+    </tr>
+  </thead>
+  <tbody id="tableInscriptions"></tbody>
+</table>
+
+<h3 class="text-lg font-semibold mt-8 mb-2">Liste d'attente</h3>
+<table class="w-full table-auto border bg-white rounded shadow mb-4">
+  <thead class="bg-gray-200">
+    <tr>
+      <th class="border px-2 py-1">Nom</th>
+      <th class="border px-2 py-1">Email</th>
+      <th class="border px-2 py-1">Atelier</th>
+      <th class="border px-2 py-1">Via</th>
+    </tr>
+  </thead>
+  <tbody id="tableAttente"></tbody>
+</table>
+
+<div class="space-x-2">
+  <button onclick="exportInscriptionsCSV()" class="bg-green-600 text-white px-4 py-2 rounded">📤 Export CSV</button>
+  <button onclick="exportInscriptionsPDF()" class="bg-indigo-600 text-white px-4 py-2 rounded">📄 Export PDF</button>
 </div>
 
-<!-- Section Candidat -->
-<section id="candidatSection" class="hidden max-w-md mx-auto bg-white p-6 rounded shadow">
-  <h2 class="text-xl font-semibold mb-4">Inscription Candidat</h2>
-  <form id="candidatForm" class="space-y-4">
-    <input type="text" id="candidatNom" placeholder="Nom complet" class="w-full border px-3 py-2 rounded" required />
-    <input type="email" id="candidatEmail" placeholder="Email" class="w-full border px-3 py-2 rounded" required />
-    <select id="candidatAtelier" class="w-full border px-3 py-2 rounded" required>
-      <option value="">Choisir un atelier</option>
-    </select>
-    <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded">S'inscrire</button>
-  </form>
-  <p id="candidatMessage" class="mt-3 text-center text-green-600 font-semibold"></p>
-  <button onclick="location.reload()" class="mt-4 text-sm text-gray-500 underline">Retour</button>
-</section>
-<!-- Section Prescripteur -->
-<section id="prescripteurSection" class="hidden max-w-md mx-auto bg-white p-6 rounded shadow">
-  <h2 class="text-xl font-semibold mb-4">Inscription via Prescripteur</h2>
-  <form id="prescripteurForm" class="space-y-4">
-    <input type="text" id="prescripteurNom" placeholder="Votre nom" class="w-full border px-3 py-2 rounded" required />
-    <input type="email" id="prescripteurEmail" placeholder="Votre email" class="w-full border px-3 py-2 rounded" required />
-    <input type="text" id="prescripteurCandidatNom" placeholder="Nom du candidat" class="w-full border px-3 py-2 rounded" required />
-    <input type="email" id="prescripteurCandidatEmail" placeholder="Email du candidat" class="w-full border px-3 py-2 rounded" required />
-    <input type="text" id="prescripteurEntreprise" placeholder="Entreprise" class="w-full border px-3 py-2 rounded" required />
-    <input type="text" id="prescripteurVille" placeholder="Ville" class="w-full border px-3 py-2 rounded" required />
-    <input type="tel" id="prescripteurTel" placeholder="Téléphone" class="w-full border px-3 py-2 rounded" required />
-    <select id="prescripteurAtelier" class="w-full border px-3 py-2 rounded" required>
-      <option value="">Choisir un atelier</option>
-    </select>
-    <button type="submit" class="w-full bg-green-600 text-white py-2 rounded">Inscrire</button>
-  </form>
-  <p id="prescripteurMessage" class="mt-3 text-center text-green-600 font-semibold"></p>
-  <button onclick="location.reload()" class="mt-4 text-sm text-gray-500 underline">Retour</button>
-</section>
+        <div id="calendar" class="bg-gray-100 p-4 rounded shadow"></div>
+        <button onclick="resetAteliers()" class="mt-4 bg-red-600 text-white px-4 py-2 rounded">Réinitialiser tous les ateliers</button>
+      </div>`;
 
-<!-- Section Organisateur -->
-<section id="adminSection" class="hidden max-w-5xl mx-auto bg-white p-6 rounded shadow">
-  <h2 class="text-xl font-semibold mb-4">Administration des ateliers</h2>
-  <form id="adminForm" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <input type="text" id="adminNom" placeholder="Nom de l'atelier" class="border px-3 py-2 rounded" required />
-    <input type="date" id="adminDateDebut" class="border px-3 py-2 rounded" required />
-    <input type="date" id="adminDateFin" class="border px-3 py-2 rounded" required />
-    <input type="time" id="adminHeureDebut" class="border px-3 py-2 rounded" required />
-    <input type="time" id="adminHeureFin" class="border px-3 py-2 rounded" required />
-    <input type="number" id="adminPlaces" placeholder="Nombre de places" min="1" class="border px-3 py-2 rounded" required />
-    <button type="submit" class="bg-blue-600 text-white py-2 rounded col-span-full">Ajouter Atelier</button>
-  </form>
-
-  <div class="mb-4">
-    <h3 class="font-semibold">Liste des ateliers :</h3>
-    <ul id="atelierList" class="list-disc pl-5 text-sm"></ul>
-  </div>
-
-  <div class="mt-6 space-x-4">
-    <button onclick="exportCSV()" class="bg-green-600 text-white px-4 py-2 rounded">Exporter CSV</button>
-    <button onclick="exportPDF()" class="bg-indigo-600 text-white px-4 py-2 rounded">Exporter PDF</button>
-  </div>
-</section>
-
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script>
-let ateliers = JSON.parse(localStorage.getItem("ateliers") || "[]");
-
-function saveAteliers() {
-  localStorage.setItem("ateliers", JSON.stringify(ateliers));
-  afficherAteliers();
-  remplirSelect();
-}
-
-function afficherAteliers() {
-  const ul = document.getElementById("atelierList");
-  if (!ul) return;
-  ul.innerHTML = "";
-  ateliers.forEach((a, i) => {
-    const li = document.createElement("li");
-    li.textContent = `${a.nom} (${a.dateDebut} → ${a.dateFin}, ${a.heureDebut}–${a.heureFin}) - ${a.places} places`;
-    const btn = document.createElement("button");
-    btn.textContent = " ❌";
-    btn.onclick = () => {
-      ateliers.splice(i, 1);
-      saveAteliers();
-    };
-    li.appendChild(btn);
-    ul.appendChild(li);
-  });
-}
-
-function remplirSelect() {
-  const selects = [document.getElementById("candidatAtelier"), document.getElementById("prescripteurAtelier")];
-  selects.forEach(sel => {
-    if (sel) {
-      sel.innerHTML = '<option value="">Choisir un atelier</option>';
-      ateliers.forEach((a, i) => {
-        const opt = document.createElement("option");
-        opt.value = i;
-        opt.textContent = `${a.nom} (${a.dateDebut} → ${a.dateFin})`;
-        sel.appendChild(opt);
+    document.getElementById("formAtelier").onsubmit = e => {
+      e.preventDefault();
+      ateliers.push({
+        nom: document.getElementById("aNom").value,
+        dateDebut: document.getElementById("aDebut").value,
+        dateFin: document.getElementById("aFin").value,
+        heureDebut: document.getElementById("aHdeb").value,
+        heureFin: document.getElementById("aHfin").value,
+        places: parseInt(document.getElementById("aPlaces").value),
+        description: document.getElementById("aDesc").value
       });
+      sauvegarder();
+      renderOrganisateur();
+    };
+
+    const ul = document.getElementById("listeAteliers");
+    ateliers.forEach((a, i) => {
+      const li = document.createElement("li");
+      li.className = "bg-gray-100 p-3 rounded flex justify-between items-center";
+      li.innerHTML = `
+        <span>${a.nom} - ${a.dateDebut} → ${a.dateFin} (${a.places} places)<br><i>${a.description}</i></span>
+        <button onclick="supprimerAtelier(${i})" class="text-red-600 font-bold">🗑️</button>`;
+      ul.appendChild(li);
+    });
+
+    chargerCalendrier();
+    afficherInscriptions();
+    afficherAttente();
+
+  }
+
+  function chargerCalendrier() {
+    const el = document.getElementById("calendar");
+    if (!el) return;
+    el.innerHTML = "";
+
+    const calendar = new FullCalendar.Calendar(el, {
+      initialView: "dayGridMonth",
+      locale: "fr",
+      height: 600,
+      headerToolbar: {
+        left: "prev,next today",
+        center: "title",
+        right: "dayGridMonth,timeGridWeek"
+      },
+      events: ateliers.map(a => ({
+        title: `${a.nom} (${a.places} places)`,
+        start: `${a.dateDebut}T${a.heureDebut}`,
+        end: `${a.dateFin}T${a.heureFin}`,
+        color: "#2563eb"
+      }))
+    });
+
+    calendar.render();
+  }
+
+  function resetAteliers() {
+    if (confirm("Confirmer la suppression de tous les ateliers ?")) {
+      ateliers = [];
+      sauvegarder();
+      renderOrganisateur();
     }
-  });
-}
-
-document.getElementById("adminForm").addEventListener("submit", e => {
-  e.preventDefault();
-  const atelier = {
-    nom: document.getElementById("adminNom").value,
-    dateDebut: document.getElementById("adminDateDebut").value,
-    dateFin: document.getElementById("adminDateFin").value,
-    heureDebut: document.getElementById("adminHeureDebut").value,
-    heureFin: document.getElementById("adminHeureFin").value,
-    places: parseInt(document.getElementById("adminPlaces").value, 10)
-  };
-  ateliers.push(atelier);
-  saveAteliers();
-  e.target.reset();
-});
-
-function selectRole(role) {
-  document.getElementById("roleSelection").classList.add("hidden");
-  document.getElementById("candidatSection").classList.toggle("hidden", role !== "candidat");
-  document.getElementById("prescripteurSection").classList.toggle("hidden", role !== "prescripteur");
-  document.getElementById("adminSection").classList.toggle("hidden", role !== "organisateur");
-  if (role === "organisateur") {
-    afficherAteliers();
-  } else {
-    remplirSelect();
   }
-}
 
-document.getElementById("candidatForm").addEventListener("submit", e => {
-  e.preventDefault();
-  const nom = document.getElementById("candidatNom").value;
-  const email = document.getElementById("candidatEmail").value;
-  const atelierIndex = document.getElementById("candidatAtelier").value;
-  const atelier = ateliers[atelierIndex];
-  emailjs.send("service_78mdt6g", "template_4xgt48q", {
-    nom: nom,
-    email: email,
-    atelier: atelier.nom
-  });
-  document.getElementById("candidatMessage").textContent = "Inscription enregistrée.";
-  e.target.reset();
-});
-
-document.getElementById("prescripteurForm").addEventListener("submit", e => {
-  e.preventDefault();
-  const data = {
-    nom: document.getElementById("prescripteurCandidatNom").value,
-    email: document.getElementById("prescripteurCandidatEmail").value,
-    entreprise: document.getElementById("prescripteurEntreprise").value,
-    ville: document.getElementById("prescripteurVille").value,
-    tel: document.getElementById("prescripteurTel").value,
-    atelier: ateliers[document.getElementById("prescripteurAtelier").value].nom
-  };
-  emailjs.send("service_78mdt6g", "template_4xgt48q", data);
-  document.getElementById("prescripteurMessage").textContent = "Inscription transmise avec succès.";
-  e.target.reset();
-});
-
-function exportCSV() {
-  const rows = [["Nom", "Date Début", "Date Fin", "Heure Début", "Heure Fin", "Places"]];
-  ateliers.forEach(a => rows.push([a.nom, a.dateDebut, a.dateFin, a.heureDebut, a.heureFin, a.places]));
-  const csv = rows.map(r => r.join(",")).join("\\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "ateliers.csv";
-  link.click();
-}
-
-function exportPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.text("Liste des Ateliers", 10, 10);
-  let y = 20;
-  ateliers.forEach(a => {
-    doc.text(`${a.nom} - ${a.dateDebut} → ${a.dateFin} - ${a.heureDebut} à ${a.heureFin}`, 10, y);
-    y += 10;
-  });
-  doc.save("ateliers.pdf");
-}
-
-window.onload = () => {
-  afficherAteliers();
-  remplirSelect();
-};
+  function supprimerAtelier(i) {
+    if (!confirm("Supprimer cet atelier ?")) return;
+    ateliers.splice(i, 1);
+    sauvegarder();
+    renderOrganisateur();
+  }
 </script>
-</body>
-</html>
-
-
-<!-- Admin login -->
-<section id="adminLoginSection" class="hidden max-w-sm mx-auto bg-white p-6 rounded shadow text-center">
-  <h2 class="text-xl font-semibold mb-4">Connexion Organisateur</h2>
-  <input type="password" id="adminPass" placeholder="Mot de passe" class="w-full border px-3 py-2 rounded mb-4" />
-  <button onclick="toggleAdmin()" class="w-full bg-gray-800 text-white py-2 rounded">Se connecter</button>
-  <p id="adminLoginMsg" class="mt-3 text-red-600 font-semibold"></p>
-  <button onclick="location.reload()" class="mt-4 text-sm text-gray-500 underline">Retour</button>
-</section>
-
-<!-- Admin dashboard -->
-<section id="adminSection" class="hidden max-w-5xl mx-auto bg-white p-6 rounded shadow">
-  <div class="flex justify-between items-center mb-4">
-    <h2 class="text-xl font-semibold">Tableau de bord Organisateur</h2>
-    <button onclick="location.reload()" class="text-gray-700 underline">Déconnexion</button>
-  </div>
-
-  <!-- Gestion ateliers -->
-  <div class="mb-6 border rounded p-4 bg-gray-50">
-    <h3 class="font-semibold mb-2">Ajouter un atelier</h3>
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
-      <input type="text" id="newAtelierNom" placeholder="Nom atelier" class="border px-3 py-2 rounded col-span-2" />
-      <input type="date" id="newAtelierDate" class="border px-3 py-2 rounded" />
-      <input type="time" id="newAtelierHeureDebut" class="border px-3 py-2 rounded" />
-      <input type="time" id="newAtelierHeureFin" class="border px-3 py-2 rounded" />
-      <input type="number" id="newAtelierPlaces" placeholder="Places" min="1" class="border px-3 py-2 rounded" />
-    </div>
-    <button onclick="addAtelier()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded">Ajouter</button>
-  </div>
-
-  <!-- Filtrer inscriptions -->
-  <div class="mb-4">
-    <label for="filterAtelier" class="font-semibold mr-2">Filtrer par atelier :</label>
-    <select id="filterAtelier" onchange="updateInscriptionsTable()" class="border px-3 py-2 rounded">
-      <option value="all">Tous les ateliers</option>
-    </select>
-  </div>
-
-  <!-- Tableau inscriptions -->
-  <div class="overflow-x-auto max-h-96">
-    <table class="min-w-full border-collapse border border-gray-300 text-sm">
-      <thead class="bg-gray-200 sticky top-0">
-        <tr>
-          <th class="border border-gray-300 px-4 py-2">Nom</th>
-          <th class="border border-gray-300 px-4 py-2">Email</th>
-          <th class="border border-gray-300 px-4 py-2">Atelier</th>
-          <th class="border border-gray-300 px-4 py-2 w-24">Actions</th>
-        </tr>
-      </thead>
-      <tbody id="organizerTableBody"></tbody>
-    </table>
-  </div>
-
-  <div class="mt-4 space-x-4">
-    <button onclick="downloadCSV()" class="bg-green-600 text-white px-4 py-2 rounded">Exporter CSV</button>
-    <button onclick="generatePDF()" class="bg-indigo-600 text-white px-4 py-2 rounded">Exporter PDF</button>
-  </div>
-
-  <!-- Changer mot de passe -->
-  <div class="mt-8 border-t pt-4 max-w-sm">
-    <h3 class="font-semibold mb-2">Changer mot de passe admin</h3>
-    <input type="password" id="newAdminPass" placeholder="Nouveau mot de passe" class="w-full border px-3 py-2 rounded mb-2" />
-    <button onclick="changeAdminPassword()" class="bg-yellow-600 text-white px-4 py-2 rounded">Changer</button>
-  </div>
-
-  <!-- Calendrier -->
-  <div class="mt-10">
-    <h3 class="font-semibold mb-2">Calendrier des ateliers</h3>
-    <div id="calendar"></div>
-  </div>
-</section>
-
-<!-- Librairies -->
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/fr.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-
-<script>
-let currentRole = null;
-let adminPassword = localStorage.getItem("adminPassword") || "atelier2024";
-let ateliers = [];
-let inscriptions = [];
-
-document.addEventListener("DOMContentLoaded", () => {
-  loadData();
-  initCalendar();
-});
-
-function loadData() {
-  const ateliersStr = localStorage.getItem("ateliers");
-  if (ateliersStr) {
-    ateliers = JSON.parse(ateliersStr);
-  }
-  const inscriptionsStr = localStorage.getItem("inscriptions");
-  if (inscriptionsStr) {
-    inscriptions = JSON.parse(inscriptionsStr);
-  }
-  populateAteliers("candidatAtelier");
-  populateAteliers("prescripteurAtelier");
-  populateFilterAteliers();
-  updateInscriptionsTable();
-  refreshCalendar();
-}
-
-function saveData() {
-  localStorage.setItem("ateliers", JSON.stringify(ateliers));
-  localStorage.setItem("inscriptions", JSON.stringify(inscriptions));
-  localStorage.setItem("adminPassword", adminPassword);
-}
-
-function selectRole(role) {
-  currentRole = role;
-  document.getElementById("roleSelection").classList.add("hidden");
-  ["candidatSection", "prescripteurSection", "adminLoginSection", "adminSection"].forEach(id => {
-    document.getElementById(id).classList.add("hidden");
-  });
-  if (role === "candidat") {
-    document.getElementById("candidatSection").classList.remove("hidden");
-  } else if (role === "prescripteur") {
-    document.getElementById("prescripteurSection").classList.remove("hidden");
-  } else if (role === "organisateur") {
-    document.getElementById("adminLoginSection").classList.remove("hidden");
-  }
-  clearMessages();
-}
-
-function clearMessages() {
-  document.getElementById("candidatMessage").textContent = "";
-  document.getElementById("prescripteurMessage").textContent = "";
-  document.getElementById("adminLoginMsg").textContent = "";
-}
-
-function populateAteliers(selectId) {
-  const select = document.getElementById(selectId);
-  if (!select) return;
-  select.innerHTML = '<option value="">Choisir un atelier</option>';
-  ateliers.forEach((a, i) => {
-    const option = document.createElement("option");
-    option.value = i;
-    option.textContent = `${a.nom} (${a.date} ${a.heureDebut} - ${a.heureFin})`;
-    select.appendChild(option);
-  });
-}
-
-function populateFilterAteliers() {
-  const filterSelect = document.getElementById("filterAtelier");
-  if (!filterSelect) return;
-  filterSelect.innerHTML = '<option value="all">Tous les ateliers</option>';
-  ateliers.forEach((a, i) => {
-    const option = document.createElement("option");
-    option.value = i;
-    option.textContent = `${a.nom} (${a.date})`;
-    filterSelect.appendChild(option);
-  });
-}
-
-function addAtelier() {
-  const nom = document.getElementById("newAtelierNom").value.trim();
-  const date = document.getElementById("newAtelierDate").value;
-  const heureDebut = document.getElementById("newAtelierHeureDebut").value;
-  const heureFin = document.getElementById("newAtelierHeureFin").value;
-  const places = parseInt(document.getElementById("newAtelierPlaces").value, 10);
-
-  if (!nom || !date || !heureDebut || !heureFin || !places || places < 1) {
-    alert("Merci de remplir tous les champs de l'atelier correctement.");
-    return;
-  }
-  ateliers.push({ nom, date, heureDebut, heureFin, places });
-  saveData();
-  populateAteliers("candidatAtelier");
-  populateAteliers("prescripteurAtelier");
-  populateFilterAteliers();
-  refreshCalendar();
-  document.getElementById("newAtelierNom").value = "";
-  document.getElementById("newAtelierDate").value = "";
-  document.getElementById("newAtelierHeureDebut").value = "";
-  document.getElementById("newAtelierHeureFin").value = "";
-  document.getElementById("newAtelierPlaces").value = "";
-}
-
-function countInscriptions(atelierIndex) {
-  return inscriptions.filter(insc => insc.atelierIndex == atelierIndex).length;
-}
-
-function inscrireCandidat(nom, email, atelierIndex, prescripteur = null) {
-  if (!nom || !email) return { success: false, message: "Nom et email obligatoires." };
-  const atelier = ateliers[atelierIndex];
-  if (!atelier) return { success: false, message: "Atelier invalide." };
-  const inscrits = countInscriptions(atelierIndex);
-  if (inscrits >= atelier.places) {
-    return { success: false, message: "Plus de places disponibles pour cet atelier." };
-  }
-  if (inscriptions.some(i => i.email.toLowerCase() === email.toLowerCase() && i.atelierIndex === atelierIndex)) {
-    return { success: false, message: "Cette personne est déjà inscrite à cet atelier." };
-  }
-  inscriptions.push({ nom, email, atelierIndex, prescripteur });
-  saveData();
-  updateInscriptionsTable();
-  refreshCalendar();
-  return { success: true };
-}
-
-document.getElementById("candidatForm").addEventListener("submit", e => {
-  e.preventDefault();
-  const nom = document.getElementById("candidatNom").value.trim();
-  const email = document.getElementById("candidatEmail").value.trim();
-  const atelierIndex = document.getElementById("candidatAtelier").value;
-  const res = inscrireCandidat(nom, email, atelierIndex);
-  const msgEl = document.getElementById("candidatMessage");
-  if (res.success) {
-    msgEl.textContent = "Inscription réussie !";
-emailjs.send("service_78mdt6g", "template_4xgt48q", {
-  nom: nom,
-  email: email,
-  atelier: ateliers[atelierIndex].nom
-});
-    e.target.reset();
-  } else {
-    msgEl.textContent = res.message;
-  }
-});
-
-document.getElementById("prescripteurForm").addEventListener("submit", e => {
-  e.preventDefault();
-  const nomPresc = document.getElementById("prescripteurNom").value.trim();
-  const emailPresc = document.getElementById("prescripteurEmail").value.trim();
-  const nomCandidat = document.getElementById("prescripteurCandidatNom").value.trim();
-  const emailCandidat = document.getElementById("prescripteurCandidatEmail").value.trim();
-  const atelierIndex = document.getElementById("prescripteurAtelier").value;
-  if (!nomPresc || !emailPresc) {
-    document.getElementById("prescripteurMessage").textContent = "Votre nom et email sont obligatoires.";
-    return;
-  }
-  const res = inscrireCandidat(nomCandidat, emailCandidat, atelierIndex, { nom: nomPresc, email: emailPresc });
-  const msgEl = document.getElementById("prescripteurMessage");
-  if (res.success) {
-    msgEl.textContent = "Candidat inscrit avec succès !";
-emailjs.send("service_78mdt6g", "template_4xgt48q", {
-  nom: nomCandidat,
-  email: emailCandidat,
-  atelier: ateliers[atelierIndex].nom,
-  entreprise: document.getElementById("prescripteurEntreprise").value,
-  ville: document.getElementById("prescripteurVille").value,
-  tel: document.getElementById("prescripteurTel").value
-});
-    e.target.reset();
-  } else {
-    msgEl.textContent = res.message;
-  }
-});
-
-function toggleAdmin() {
-  const passInput = document.getElementById("adminPass");
-  const msgEl = document.getElementById("adminLoginMsg");
-  if (passInput.value === adminPassword) {
-    document.getElementById("adminLoginSection").classList.add("hidden");
-    document.getElementById("adminSection").classList.remove("hidden");
-    passInput.value = "";
-    msgEl.textContent = "";
-    updateInscriptionsTable();
-    populateFilterAteliers();
-    refreshCalendar();
-  } else {
-    msgEl.textContent = "Mot de passe incorrect.";
-  }
-}
-
-function updateInscriptionsTable() {
-  const tbody = document.getElementById("organizerTableBody");
-  if (!tbody) return;
+<!-- Librairies JS externes -->
+  <script>
+function afficherInscriptions() {
+  const tbody = document.getElementById("tableInscriptions");
+  const inscriptions = JSON.parse(localStorage.getItem("inscriptions") || "[]");
   tbody.innerHTML = "";
-  const filterVal = document.getElementById("filterAtelier").value;
-  const filteredInscriptions = filterVal === "all" ? inscriptions : inscriptions.filter(i => i.atelierIndex == filterVal);
-  filteredInscriptions.forEach((insc, i) => {
-    const atelier = ateliers[insc.atelierIndex];
+  inscriptions.forEach(insc => {
     const tr = document.createElement("tr");
-    tr.className = i % 2 === 0 ? "bg-white" : "bg-gray-50";
+    const atelier = ateliers[insc.atelierIndex];
     tr.innerHTML = `
-      <td class="border border-gray-300 px-3 py-1">${insc.nom}</td>
-      <td class="border border-gray-300 px-3 py-1">${insc.email}</td>
-      <td class="border border-gray-300 px-3 py-1">${atelier ? atelier.nom : "Inconnu"}</td>
-      <td class="border border-gray-300 px-3 py-1 text-center">
-        <button onclick="removeInscription(${i})" class="text-red-600 hover:underline text-sm">Supprimer</button>
-      </td>
+      <td class="border px-2 py-1">${insc.nom}</td>
+      <td class="border px-2 py-1">${insc.email}</td>
+      <td class="border px-2 py-1">${atelier ? atelier.nom : "?"}</td>
+      <td class="border px-2 py-1">${insc.role || "?"}</td>
     `;
     tbody.appendChild(tr);
   });
 }
 
-function removeInscription(indexInFiltered) {
-  const filterVal = document.getElementById("filterAtelier").value;
-  let filteredInscriptions = filterVal === "all" ? inscriptions : inscriptions.filter(i => i.atelierIndex == filterVal);
-
-  const insc = filteredInscriptions[indexInFiltered];
-  if (!insc) return;
-
-  // Trouver index dans inscriptions global
-  const globalIndex = inscriptions.findIndex(i =>
-    i.nom === insc.nom &&
-    i.email === insc.email &&
-    i.atelierIndex === insc.atelierIndex);
-
-  if (globalIndex !== -1) {
-    inscriptions.splice(globalIndex, 1);
-    saveData();
-    updateInscriptionsTable();
-    refreshCalendar();
-  }
+function afficherAttente() {
+  const tbody = document.getElementById("tableAttente");
+  const attente = JSON.parse(localStorage.getItem("listeAttente") || "[]");
+  tbody.innerHTML = "";
+  attente.forEach(insc => {
+    const atelier = ateliers[insc.atelierIndex];
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="border px-2 py-1">${insc.nom}</td>
+      <td class="border px-2 py-1">${insc.email}</td>
+      <td class="border px-2 py-1">${atelier ? atelier.nom : "?"}</td>
+      <td class="border px-2 py-1">${insc.role || "?"}</td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
-function changeAdminPassword() {
-  const newPass = document.getElementById("newAdminPass").value.trim();
-  if (!newPass) {
-    alert("Le nouveau mot de passe ne peut pas être vide.");
-    return;
-  }
-  adminPassword = newPass;
-  saveData();
-  alert("Mot de passe changé avec succès.");
-  document.getElementById("newAdminPass").value = "";
-}
-
-function downloadCSV() {
-  let csv = "Nom,Email,Atelier,Préscripteur\n";
+function exportInscriptionsCSV() {
+  let csv = "Nom,Email,Atelier,Rôle\n";
+  const inscriptions = JSON.parse(localStorage.getItem("inscriptions") || "[]");
   inscriptions.forEach(insc => {
     const atelier = ateliers[insc.atelierIndex];
-    const presc = insc.prescripteur ? `${insc.prescripteur.nom} <${insc.prescripteur.email}>` : "";
-    csv += `"${insc.nom}","${insc.email}","${atelier ? atelier.nom : ""}","${presc}"\n`;
+    csv += `"${insc.nom}","${insc.email}","${atelier ? atelier.nom : ""}","${insc.role || ""}"\n`;
   });
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
+  a.href = URL.createObjectURL(blob);
   a.download = "inscriptions.csv";
   a.click();
-  URL.revokeObjectURL(url);
 }
 
-async function generatePDF() {
+function exportInscriptionsPDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  doc.setFontSize(14);
-  doc.text("Liste des inscriptions", 10, 15);
-  doc.setFontSize(10);
-  let y = 25;
-  const lineHeight = 7;
-  inscriptions.forEach((insc, i) => {
+  doc.setFontSize(12);
+  doc.text("Inscriptions", 10, 10);
+  let y = 20;
+  const inscriptions = JSON.parse(localStorage.getItem("inscriptions") || "[]");
+  inscriptions.forEach((insc, index) => {
     const atelier = ateliers[insc.atelierIndex];
-    const presc = insc.prescripteur ? `${insc.prescripteur.nom} <${insc.prescripteur.email}>` : "";
-    let line = `${insc.nom} | ${insc.email} | ${atelier ? atelier.nom : ""} | ${presc}`;
-    if (y > 280) {
+    doc.text(`${index + 1}. ${insc.nom} - ${insc.email} (${atelier ? atelier.nom : ""})`, 10, y);
+    y += 7;
+    if (y > 270) {
       doc.addPage();
-      y = 15;
+      y = 20;
     }
-    doc.text(line, 10, y);
-    y += lineHeight;
   });
   doc.save("inscriptions.pdf");
 }
-
-// Calendar setup
-let calendar = null;
-function initCalendar() {
-  const calendarEl = document.getElementById("calendar");
-  calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: "dayGridMonth",
-    locale: "fr",
-    headerToolbar: {
-      left: "prev,next today",
-      center: "title",
-      right: "dayGridMonth,timeGridWeek,timeGridDay"
-    },
-    events: [],
-    height: 600,
-    eventDidMount: info => {
-      // Tooltip with places left
-      const atelier = ateliers.find(a => a.date === info.event.startStr);
-      if (atelier) {
-        const inscrits = countInscriptions(atelier.index);
-        info.el.title = `${atelier.nom}\nPlaces totales: ${atelier.places}\nPlaces restantes: ${atelier.places - inscrits}`;
-      }
-    }
-  });
-  calendar.render();
-  refreshCalendar();
-}
-
-function refreshCalendar() {
-  if (!calendar) return;
-  calendar.removeAllEvents();
-  ateliers.forEach((a, i) => {
-    const inscrits = countInscriptions(i);
-    const placesRestantes = a.places - inscrits;
-    calendar.addEvent({
-      title: `${a.nom} (${placesRestantes} places libres)`,
-      start: a.date + "T" + a.heureDebut,
-      end: a.date + "T" + a.heureFin,
-      color: placesRestantes > 0 ? "green" : "red",
-      extendedProps: { index: i }
-    });
-  });
-}
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/fr.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
 </body>
 </html>
