@@ -11,21 +11,37 @@
     emailjs.init("GvqsBDTA611pD8wap");
   </script>
   <style>
-    body { font-family: sans-serif; }
-    .hidden { display: none; }
+  
+body {
+  font-family: sans-serif;
+  background: linear-gradient(to bottom right, #f0f4f8, #e2e8f0);
+}
+
   </style>
 </head>
 <body class="bg-gray-100 p-6">
+  <header class="bg-blue-700 text-white py-4 shadow-md mb-6">
+  <div class="max-w-6xl mx-auto px-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <img src="https://th.bing.com/th/id/OIP.dA00hrUFvJUl0am7ou6oLAHaFP?rs=1&pid=ImgDetMain" alt="Logo" class="w-10 h-10 rounded-full bg-white p-1 shadow" />
+      <h1 class="text-xl font-bold">🎓 Mon Plannificateur d'ateliers !</h1>
+    </div>
+    <span class="text-sm font-light hidden sm:inline">Plateforme de réservation</span>
+  </div>
+</header>
   <h1 class="text-3xl font-bold text-center mb-6">Réservation d'Ateliers</h1>
   <div class="text-center space-x-2 mb-6">
-    <button onclick="selectRole('candidat')" class="bg-blue-600 text-white px-4 py-2 rounded">Candidat</button>
-    <button onclick="selectRole('prescripteur')" class="bg-green-600 text-white px-4 py-2 rounded">Prescripteur</button>
-    <button onclick="selectRole('organisateur')" class="bg-gray-800 text-white px-4 py-2 rounded">Organisateur</button>
+    <div class="text-center space-x-2 mb-6">
+  <button onclick="selectRole('candidat')" class="bg-blue-600 text-white px-4 py-2 rounded">🙋‍ Candidat</button>
+  <button onclick="selectRole('prescripteur')" class="bg-green-600 text-white px-4 py-2 rounded">🏢 Prescripteur</button>
+  <button onclick="selectRole('organisateur')" class="bg-gray-800 text-white px-4 py-2 rounded">🛠️ Organisateur</button>
+</div>
+
   </div>
   <div id="app" class="max-w-6xl mx-auto"></div>
 <script>
   let ateliers = JSON.parse(localStorage.getItem("ateliers") || "[]");
-  const mdp = "atelier2024";
+  const mdp = "atelier2025";
 
   function sauvegarder() {
     localStorage.setItem("ateliers", JSON.stringify(ateliers));
